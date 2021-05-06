@@ -35,4 +35,12 @@ Sobre o rei valer 50 pontos: teoricamente, a pontuação do tabuleiro quando o r
 Resultados:
 Ele é razoavelmente "inteligente", exceto pelo fato de algumas jogadas agressivas "bobas" que ele faz.
 Por exemplo:
+![Capturar2](https://user-images.githubusercontent.com/79885562/117328592-28404880-ae6a-11eb-997e-f60dabea9b31.JPG)
+
+Após movimentar a rainha para onde ela está, ele entendeu que a melhor jogada foi avançar o peão pra frente, apesar de eu poder simplesmente capturá-lo com a rainha.Faz sentido, porque, para ele, eu tenho algo próximo de 1 em 20 de chance de capturar o peão, quando, na verdade, essa chance é de quase 100%.
+
+Algo interessante a se pensar é "por que ele não avançou com o peão da torre pra cima da rainha?". Acredito que isso aconteceu porque 200 partidas ainda é uma amostragem não suficiente. Se em 1 em cada 20 partidas a rainha captura o peão, teríamos 10 jogos imaginários onde isso aconteceria, o que quer dizer que ele teria 10 jogos para montar uma estatística sobre a chance de a torre dele capturar a rainha de volta, o que não retorna algo preciso.
+
+Por uma questão de processamento, falta de otimização, demora e paciência do jogador, 200 jogos imaginários é um número "ideal", já que não valeria a pena ter um bot que jogasse um pouco melhor mas que demorasse 2 minutos para isso. O tempo atual de resposta dele é de mais ou menos 15 segundos.
+
 
