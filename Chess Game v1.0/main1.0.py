@@ -3,17 +3,11 @@ import random
 import concurrent.futures
 import threading
 """
-At this chess game, the player plays always with white pieces and
-the bot always with black ones, for the sake of making programming less
-laborius.
+As posições das peças estão na forma (0-7,0-7), mas o tabuleiro é 900x900 pixels
+e tem umas borda de 50 pixels, portanto, como cada quadrado tem 100x100 pixels,
+no pygame as posições estão na forma (50-850,50,850).
 
-
-The pieces positions are in the form (0-7,0-7) in order to make it easier
-to create loops with python's range().
-
-Bu the board is actually 900x900 pixels and have a 50-pixels edge, which means that the positions
-will have to be converted to a (50-850,50-850).
-
+As funções "look" e "deslook" fazem aconversão de uma para outra.
 """
 def look(posicao): #Convert (50-850,50-850) to (0-7,0-7)
     return (int((posicao[0] - 50)//100),int((posicao[1] - 50)//100))
@@ -21,14 +15,20 @@ def look(posicao): #Convert (50-850,50-850) to (0-7,0-7)
 def deslook(posicao):#Convert (0-7,0-7) to (50-850,50-850)
     return(posicao[0]*100 + 50,posicao[1]*100 + 50)
 
-"""Function that returns what piece is in a board position, from a list "listapeca"
-that of pieces that are in the game"""
+"""
+Existe uma lista de peças no jogo, que possui todas as peças vivas.
+Para ver se há uma peça em uma certa posição, pode-se usar a função
+"get_peca", que retorna a peça ou uma lista vazia, se não há peça na posição
+"""
 def get_peca(posicao,listapeca):
     for peca in listapeca:
         if peca.pos == posicao:
             return peca
     return []
-
+"""
+Faz o cálculo da pontuação do tabuleiro para as peças pretas (que sempre é o bot)
+cada peça tem o seu valor definido no __init__ da classe
+"""
 def pontuar(listapeca):
     soma = 0
     for i in listapeca:
@@ -36,11 +36,17 @@ def pontuar(listapeca):
     return soma
 
 
-#Defines a class for pieces, it will be the mother-class of the other classes
+#Define a classe mãe das peças, que possui algumas funções básicas
 class Peca():
     def blit_pos(self):
-        return (self.pos[0]*100 + 50,self.pos[1]*100 + 50)
+        return deslook(self.pos)
 
+    """
+A função "ver" atua sempre junto com a get_range(ver as classes das peças)
+Ela serve para quebrar os loops quando a função get_range encontra uma outra peça,
+de modo que uma torre preta não possa capturar outra peça preta ou que ela não "atropele"
+outras peças, "pulando por cima" delas
+    """
     def ver(self,a_,lista_):
         for p in lista_:
             if p.pos == a_:
@@ -49,8 +55,15 @@ class Peca():
                 else:
                     return (True,True)
         return (False, True)
+    """
+Função para mover peças, removendo as peças capturadas da lista de peças
 
-    #Function for moving pieces
+Se o rei branco é capturado, retorna (False,True)
+Se o rei preto é capturado, retorna (True, False)
+Se nenhum deles foi capturado, retorna (False,False)
+
+Serve para detectar o fim de jogo e quem ganhou, além de mover as peças
+    """
     def move(self,posicao,lista_peca):
         pos_anterior = self.pos
         self.vez_de_jogar = False
@@ -60,7 +73,7 @@ class Peca():
         self.pos = (posicao)
         self.count = peca.count + 1
 
-        #castling move
+        #Roque
         if type(self) == Rei:
             if self.pos[0] - pos_anterior[0] == -2:
                 torre = get_peca((pos_anterior[0] - 4,pos_anterior[1]),lista_peca)
@@ -69,7 +82,7 @@ class Peca():
                 torre = get_peca((pos_anterior[0] + 3,pos_anterior[1]),lista_peca)
                 torre.move((self.pos[0] - 1,self.pos[1]),lista_peca)
                 
-        #At this game, the pawn transform automatically into a queen when reaching the edge of the board
+        #Quando o peão chega à última casa
         if type(self) == Peao:
             if self.cor == 2:
                 if self.pos[1] == 7:
@@ -80,7 +93,7 @@ class Peca():
                     rainha = Rainha(posicao,lista_peca,1)
                     lista_peca.remove(self)
                     
-        #Detect if any king is dead
+        #Detecta se algum rei foi capturado
         if type(peca_ant) == Rei:
             if peca_ant.cor == 1:
                 return (False,True)
@@ -89,17 +102,12 @@ class Peca():
         return (False,False)
 
 """
-This function simulates an "imaginary game" where:
+Função que simula alguns turnos "imaginários" à partir de uma primeira jogada
 
-primeira_jogada : the first play
-listapeca : the list of pieces in game
-nturnos : number of turns
+Ela cria uma "lista_fake" idêntica à lista de peças original e trabalha com essa
+lista para não alterar o tabuleiro original
 
-In this simulation, the bot and the player play randomly, except for
-when the king can be captured.
-
-it returns the board score for the black pieces after "nturnos" turns.
-The value of pieces are declared in their classes.
+Função retorna a pontuação do tabuleiro após "nturnos" turnos
 """
 def simulate(primeira_jogada,listapeca,nturnos): #primeira_jogada = [(pos1),(pos2)]
     lista_fake = []
@@ -111,11 +119,8 @@ def simulate(primeira_jogada,listapeca,nturnos): #primeira_jogada = [(pos1),(pos
         a = type(i)(i.pos,lista_fake,i.cor)
 
     turno = False
-    """print(listadepos)
-    print(listadeposlistapeca)
-    print(get_peca(primeira_jogada[0],lista_fake))
-    print(get_peca(primeira_jogada[0],listapeca))"""
     get_peca(primeira_jogada[0],lista_fake).move(primeira_jogada[1],lista_fake)
+
     while n < nturnos:
         if turno:
             possibilidades = []
@@ -129,9 +134,9 @@ def simulate(primeira_jogada,listapeca,nturnos): #primeira_jogada = [(pos1),(pos
                 if type(get_peca(possibilidades[1],lista_fake)) == Rei:
                     escolha = k
             escolha[0].move(escolha[1],lista_fake)
-            #print(str(type(escolha[0])) + str(escolha[1]))
             n = n + 1
             turno = False
+            
         if not turno:
             possibilidades = []
             for peca in lista_fake:
@@ -149,9 +154,7 @@ def simulate(primeira_jogada,listapeca,nturnos): #primeira_jogada = [(pos1),(pos
     return pontuar(lista_fake)
 
 """
-This function simulates 200 games for 6 turns for each possible play in the board,
-then it gets the average of the board score for each possible play and choose the highest.
-
+Simula 200 jogos por 6 turnos para cada peça e retorna a melhor jogada
 """
 def montecarlo(listapeca):
     print("processando...")
@@ -164,26 +167,32 @@ def montecarlo(listapeca):
     for pj in alcance:
         soma = 0
         listathreads = []
+        #Usa o multithreading do python para acelerar o processamento
         with concurrent.futures.ThreadPoolExecutor() as executor:
             results = [executor.submit(simulate,pj,listapeca,6) for i in range(200)]
             for r in concurrent.futures.as_completed(results):
                 soma = soma + r.result()
         media = soma/50
         pj.append(media)
-    melhor = [(-1,-2),(-3,-4),-150]
+    melhor = [(-1,-2),(-3,-4),-150] # pontuação arbitrária e impossível apenas para começar o "recorde"
     for pj in alcance:
         if pj[2] > melhor[2]:
             melhor = pj
     print("processamento terminado!")
     return [get_peca(melhor[0],listapeca),melhor[1]]
 """
-Class for king
+Classe para o rei
 
-the pieces recieves:
-a postion "pos" (tuple)
-a list "lista_peca" (list)
-a color "cor" (int) : if cor == 1: the piece is white
-                    : if cor == 2: the piece is black
+Todas as peças recebem uma:
+posição: tupla do tipo (0-7,0-7)
+lista de peças (tabuleiro que será inserida)
+cor: se for 1: peça é branca, se for 2: peça é preta
+
+No __init__ das classes de peças, elas recebem:
+Um count = 0, que indica quantas vezes elas já se moveram,
+importante para o caso dos peões ou para fazer o roque
+Um valor: cada classe tem seu valor, o rei vale 50.
+Um blit = True, quando a peça não precisar ser mostrada, ele é alterado para False
 """
 class Rei(Peca):
     def __init__(self,pos,lista_peca,cor):
@@ -199,7 +208,8 @@ class Rei(Peca):
             self.valor = -self.valor
         if cor == 2:
             self.image = pygame.image.load("rei preto.png")
-
+            
+    #Função ver adaptada para o rei, pois ele só anda uma casa
     def ver_rei(self,a_,listapeca_):
         for p in listapeca_:
             if p.pos == a_:
@@ -207,8 +217,7 @@ class Rei(Peca):
                     return False
         return True
 
-    #The get_range function id defined for all pieces class
-    #It returns all the positions this piece can move in the moment it is called
+    #Todas as classes tem um get_range próprio, que retorna para onde elas podem jogar
     def get_range(self,listapeca):
         lista = []
         for i in range(-1,2):
@@ -236,6 +245,7 @@ class Rei(Peca):
             if not a[1] < 0 and not a[1] > 7:
                     if self.ver_rei(a,listapeca):
                         lista.append(a)
+        #Roque
         if self.count == 0:
             peca1 = get_peca((self.pos[0] + 3,self.pos[1]),listapeca)
             peca2 = get_peca((self.pos[0] - 4,self.pos[1]),listapeca)
@@ -249,7 +259,7 @@ class Rei(Peca):
                         lista.append((self.pos[0] - 2,self.pos[1]))
         return lista
 
-#Class for queen
+#Classe para rainha
 class Rainha(Peca):
     def __init__(self,pos,lista_peca,cor):
         self.count = 0
@@ -378,7 +388,7 @@ class Rainha(Peca):
             
         return lista
 
-#Class for tower
+#Classe para torre
 class Torre(Peca):
     def __init__(self,pos,lista_peca,cor):
         self.valor = 5
@@ -451,7 +461,7 @@ class Torre(Peca):
 
         return lista
 
-#Class for bishop
+#Classe para bispo
 class Bispo(Peca):
     def __init__(self,pos,lista_peca,cor):
         self.valor = 3
@@ -528,7 +538,7 @@ class Bispo(Peca):
 
         return lista
 
-#Class for horse
+#Classe para cavalo
 class Cavalo(Peca):
     def __init__(self,pos,lista_peca,cor):
         self.valor = 3
@@ -557,7 +567,7 @@ class Cavalo(Peca):
                     lista.append(a)
         return lista
 
-#Class for pawn
+#Classe para peão
 class Peao(Peca):
     def __init__(self,pos,lista_peca,cor):
         self.valor = 1
@@ -627,10 +637,10 @@ class Peao(Peca):
 pygame.init()
 superjanela = True
 
-#This loop is ended only when the game window is closed
+#While que ficará aberto até que se feche a janela do pygame
 while superjanela:
 
-    #Some pygame definitions
+    #Definições de tela do pygame e de textos caso alguém ganhe
     tela = pygame.display.set_mode((900,900))
     pygame.display.set_caption("Projeto Xadrez")
     fundo = pygame.image.load("tabuleiro.png")
@@ -655,16 +665,16 @@ while superjanela:
     lista_peca = []
     
     """"
-    "posmouse" represents where is the mouse position when there is a mouse button up
-    It starts in a random negative position in order to don't activate nothing if
-    none mouse button has been pressed and up
+    "posmouse" é a posição do mouse quando o botão do mouse é clicado.
+    Começa em (-300,-300) para não "confundir" o programa, dado que ele
+    "precisa" saber onde está sendo clicado
     """
     posmouse = (-300,-300)
     
-    #if "turno" is true, it is the white turn of play
+    #Se turno == True, é a vez das brancas
     turno = True
 
-    #Organization of the pieces over the board
+    #Organiza as peças no tabuleiro
     for i in range(2):
         torre = Torre((0,7 - 7*i),lista_peca,i +1)
         torre = Torre((7,7 - 7*i),lista_peca,i +1)
@@ -686,19 +696,26 @@ while superjanela:
     brancas_ganharam = False
     pretas_ganharam = False
     
-    #This loop is ended if someone wins the game
+    #Loop que roda até alguem ganhar o jogo
     while janelaaberta:
         posmouse = (-300,-300)
+        """
+rele e rele2 são condições associadas com a questão de troca da vez das peças de
+jogar. Por exemplo, se eu clico em uma peça e depois clico em algum canto do tabuleiro,
+Ele tira a vez daquela peça
+        """
         rele = False
         rele2 = 0
-        
+
+        #Analisa os cliques da tela
         for i in pygame.event.get():
             if i.type == pygame.QUIT:
                 janelaaberta = False
                 superjanela = False
             if i.type == pygame.MOUSEBUTTONUP:
                 posmouse = pygame.mouse.get_pos()
-                
+
+        #blita o tabuleiro e as peças depois
         tela.blit(fundo,(0,0))
         
         for peca in lista_peca:
@@ -707,15 +724,16 @@ while superjanela:
                 
         if turno: 
             for peca in lista_peca:
-                #vez_de_jogar == True means that the player clicked over the piece
+                #vez_de_jogar == True quer dizer que o jogador clicou em uma peça branca
                 if peca.vez_de_jogar:
                     rang = peca.get_range(lista_peca)
                     if rang == []:
                         continue
                     for i in rang:
-                        #"fumaca" is the green spot for positions the player can move the pieces
+                        #"fumaca" é o fundinho verde que fica nas posições possíveis de jogar
                         tela.blit(fumaca,(deslook(i)))
                         if look(posmouse) == i:
+                            #Se as brancas capturam o rei preto: elas ganharam
                             brancas_ganharam = peca.move(i,lista_peca)[0]
                             turno = False
                             rele = True
@@ -724,7 +742,7 @@ while superjanela:
                     if rele:
                         peca.vez_de_jogar = False
 
-            #Scheme for changing the selected piece if another is selected
+            #Esquema para trocar qual peça vai jogar caso o jogador clique em outra peça
             for peca in lista_peca:
 
                 if peca.cor == 1:
@@ -738,14 +756,14 @@ while superjanela:
                         else:
                             peca.vez_de_jogar = False
                             
-        #"turno" is false, so bot is playing
+        #Se "turno" é falso, pretas jogam
         else:
             possibilidades = []
             escolha = montecarlo(lista_peca)
+            #Se elas capturaram o rei branco, elas ganham:
             pretas_ganharam = escolha[0].move(escolha[1],lista_peca)[1]
             turno = True
 
-        #If the black ones won:
         if pretas_ganharam:
             tela.blit(textpretas,textpretas_rect)
             tela.blit(texto_abaixo,texto_abaixo_rect)
@@ -761,7 +779,6 @@ while superjanela:
                     break
             janelaaberta = False
             
-        #If the white ones won:
         if brancas_ganharam:
             tela.blit(textbrancas,textbrancas_rect)
             tela.blit(texto_abaixo,texto_abaixo_rect)
